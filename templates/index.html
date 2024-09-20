@@ -77,7 +77,7 @@
                 max-width: 100%;
             }
             canvas {
-                width: 100%; /* Ocupar toda a largura disponível */
+                width: 40%; /* Ocupar toda a largura disponível */
                 max-width: 100%;
             }
             button {
@@ -92,13 +92,14 @@
 <body>
     <h1>Calculadora em Vídeo</h1>
     <video id="video" autoplay></video>
-    <canvas id="outputCanvas"></canvas> <!-- Canvas para exibir a imagem -->
     
     <div class="button-container">
         <button id="capture">Capturar</button>
         <button id="toggleCamera">Câmera Frontal</button>
     </div>
 
+    <canvas id="outputCanvas"></canvas> <!-- Canvas para exibir a imagem -->
+    
     <div>
         <button id="calculate">Enviar para Cálculo</button>
     </div>

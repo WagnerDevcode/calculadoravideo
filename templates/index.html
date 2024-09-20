@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculadora em Vídeo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+            background-color: #f9f9f9; /* Fundo suave */
+        }
+        h1 {
+            margin-bottom: 20px; /* Espaço abaixo do título */
+            color: #333; /* Cor do título */
+        }
+        video {
+            width: 100%; /* Alterado para 100% */
+            height: auto;
+            max-width: 240px; /* Tamanho máximo para manter o controle */
+            border: 2px solid #000; /* Borda mais grossa */
+            border-radius: 5px; /* Cantos arredondados */
+        }
+        canvas {
+            border: 2px solid #000; /* Borda ao canvas de saída */
+            margin-top: 10px; /* Espaço entre vídeo e canvas */
+            max-width: 240px; /* Ajusta para ocupar toda a largura disponível */
+            height: auto; /* Mantém a proporção */
+            border-radius: 5px; /* Cantos arredondados */
+        }
+        button {
+            padding: 10px 20px; /* Espaçamento interno dos botões */
+            margin: 10px; /* Espaço entre os botões */
+            border: none; /* Sem borda */
+            border-radius: 5px; /* Cantos arredondados */
+            background-color: #007BFF; /* Cor de fundo */
+            color: white; /* Cor do texto */
+            cursor: pointer; /* Cursor em forma de mão */
+            transition: background-color 0.3s; /* Efeito ao passar o mouse */
+            font-size: 16px; /* Tamanho da fonte ajustado */
+        }
+        button:hover {
+            background-color: #0056b3; /* Cor do botão ao passar o mouse */
+        }
+        .card {
+            display: flex; /* Alterado para flex para melhor controle */
+            flex-direction: column; /* Coloca conteúdo em coluna */
+            margin: 10px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            max-width: 300px;
+            text-align: left;
+            vertical-align: top; /* Para alinhar os cards na mesma linha */
+        }
+        .card-container {
+            display: flex;
+            justify-content: center; /* Centraliza os cards horizontalmente */
+            flex-wrap: wrap; /* Permite que os cards se movam para a próxima linha */
+            margin-top: 20px; /* Espaço acima dos cards */
+        }
+        #result {
+            font-size: 20px;
+            color: blue;
+        }
+
+        /* Media Queries para dispositivos móveis */
+        @media (max-width: 600px) {
+            video {
+                max-width: 100%;
+            }
+            canvas {
+                width: 100%; /* Ocupar toda a largura disponível */
+                max-width: 100%;
+            }
+            button {
+                width: 90%; /* Botões mais largos em telas menores */
+            }
+            .card {
+                width: 90%; /* Card ocupa 90% da tela em dispositivos móveis */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Calculadora em Vídeo</h1>
+    <video id="video" autoplay></video>
+    <canvas id="outputCanvas"></canvas> <!-- Canvas para exibir a imagem -->
+    <div>
+        <button id="capture">Capturar Texto</button>
+        <button id="calculate">Enviar para Cálculo</button>
+    </div>
+    
+    <div class="card-container">
+        <div id="recognizedText" class="card" style="display: none;"></div>
+        <div id="result" class="card" style="display: none;"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/2.1.1/tesseract.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const recognizedTextDiv = document.getElementById('recognizedText');
+        const outputCanvas = document.getElementById('outputCanvas');
+        const outputContext = outputCanvas.getContext('2d');
+
+        // Acessar a câmera
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Erro ao acessar a câmera: ", err);
+            });
+
+        document.getElementById('capture').addEventListener('click', () => {
+            // Definir dimensões do canvas para capturar a imagem
+            outputCanvas.width = video.videoWidth;
+            outputCanvas.height = video.videoHeight;
+
+            // Desenhar o vídeo no canvas
+            outputContext.drawImage(video, 0, 0);
+
+            // Processar a imagem capturada
+            processImage(outputCanvas);
+        });
+
+        function processImage(canvas) {
+            const imageData = outputContext.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            // Inverter cores e converter para escala de cinza
+            for (let i = 0; i < data.length; i += 4) {
+                // Inverter cores
+                data[i] = 255 - data[i];     // Red
+                data[i + 1] = 255 - data[i + 1]; // Green
+                data[i + 2] = 255 - data[i + 2]; // Blue
+                
+                // Converter para escala de cinza (usando média)
+                const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                data[i] = avg;     // Red
+                data[i + 1] = avg; // Green
+                data[i + 2] = avg; // Blue
+            }
+
+            // Aumentar contraste usando um threshold adaptativo
+            for (let i = 0; i < data.length; i += 4) {
+                const brightness = data[i]; // Usar o valor da escala de cinza
+                // Ajuste do threshold para permitir mais flexibilidade
+                data[i] = data[i + 1] = data[i + 2] = brightness < 200 ? 0 : 255; // Preto ou Branco
+            }
+
+            outputContext.putImageData(imageData, 0, 0);
+
+            // Redimensionar a imagem para melhorar a taxa de reconhecimento
+            const scaledCanvas = document.createElement('canvas');
+            const scaleFactor = 2; // Aumentar a resolução
+            scaledCanvas.width = canvas.width * scaleFactor;
+            scaledCanvas.height = canvas.height * scaleFactor;
+            const scaledContext = scaledCanvas.getContext('2d');
+            scaledContext.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+
+            // Enviar a imagem processada para o Tesseract
+            Tesseract.recognize(
+                scaledCanvas.toDataURL('image/png'),
+                'eng+por', // Adicionar suporte para português
+                {
+                    logger: m => console.log(m) // Log do progresso
+                }
+            ).then(({ data: { text } }) => {
+                const filteredText = filterExpression(text);
+                recognizedTextDiv.innerText = filteredText;
+                recognizedTextDiv.style.display = 'block';
+                console.log("Texto reconhecido e filtrado:", filteredText);
+            });
+        }
+
+        function filterExpression(text) {
+            // Filtrar todos os caracteres, incluindo especiais e letras
+            return text.replace(/[^\w\s\+\-\*\/\.\(\)áéíóúãâêîôûç]/g, ''); // Permitir letras, números e operadores
+        }
+
+        document.getElementById('calculate').addEventListener('click', () => {
+            const recognizedText = recognizedTextDiv.innerText;
+            sendExpression(recognizedText);
+        });
+
+        function sendExpression(expression) {
+            fetch('/calculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ expression: expression }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerText = 'Resultado: ' + data.result;
+                resultDiv.style.display = 'block';
+            })
+            .catch((error) => {
+                console.error('Erro:', error);
+            });
+        }
+    </script>
+</body>
+</html>

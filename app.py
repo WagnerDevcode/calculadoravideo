@@ -1,10 +1,8 @@
 import re
-import numpy as np
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 
-# Configure o caminho para o Tesseract se necessário
 
 @app.route('/')
 def index():

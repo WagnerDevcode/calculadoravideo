@@ -54,7 +54,6 @@
             box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
             max-width: 300px;
             text-align: left;
-            vertical-align: top; /* Para alinhar os cards na mesma linha */
         }
         .card-container {
             display: flex;
@@ -65,6 +64,11 @@
         #result {
             font-size: 20px;
             color: blue;
+        }
+        .button-container {
+            display: flex; /* Flex para os botões */
+            justify-content: center; /* Centraliza os botões */
+            margin-top: 10px; /* Espaço acima dos botões */
         }
 
         /* Media Queries para dispositivos móveis */
@@ -89,8 +93,13 @@
     <h1>Calculadora em Vídeo</h1>
     <video id="video" autoplay></video>
     <canvas id="outputCanvas"></canvas> <!-- Canvas para exibir a imagem -->
+    
+    <div class="button-container">
+        <button id="capture">Capturar</button>
+        <button id="toggleCamera">Câmera Frontal</button>
+    </div>
+
     <div>
-        <button id="capture">Capturar Texto</button>
         <button id="calculate">Enviar para Cálculo</button>
     </div>
     
@@ -105,26 +114,32 @@
         const recognizedTextDiv = document.getElementById('recognizedText');
         const outputCanvas = document.getElementById('outputCanvas');
         const outputContext = outputCanvas.getContext('2d');
+        let isFrontCamera = false;
 
-        // Acessar a câmera
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("Erro ao acessar a câmera: ", err);
-            });
+        // Função para acessar a câmera
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: isFrontCamera ? 'user' : 'environment' } })
+                .then(stream => {
+                    video.srcObject = stream;
+                })
+                .catch(err => {
+                    console.error("Erro ao acessar a câmera: ", err);
+                });
+        }
+
+        startCamera();
 
         document.getElementById('capture').addEventListener('click', () => {
-            // Definir dimensões do canvas para capturar a imagem
             outputCanvas.width = video.videoWidth;
             outputCanvas.height = video.videoHeight;
-
-            // Desenhar o vídeo no canvas
             outputContext.drawImage(video, 0, 0);
-
-            // Processar a imagem capturada
             processImage(outputCanvas);
+        });
+
+        document.getElementById('toggleCamera').addEventListener('click', () => {
+            isFrontCamera = !isFrontCamera; // Alterna entre as câmeras
+            startCamera();
+            document.getElementById('toggleCamera').innerText = isFrontCamera ? "Câmera Traseira" : "Câmera Frontal"; // Atualiza o texto do botão
         });
 
         function processImage(canvas) {
@@ -133,41 +148,35 @@
 
             // Inverter cores e converter para escala de cinza
             for (let i = 0; i < data.length; i += 4) {
-                // Inverter cores
-                data[i] = 255 - data[i];     // Red
-                data[i + 1] = 255 - data[i + 1]; // Green
-                data[i + 2] = 255 - data[i + 2]; // Blue
-                
-                // Converter para escala de cinza (usando média)
+                data[i] = 255 - data[i];     
+                data[i + 1] = 255 - data[i + 1];
+                data[i + 2] = 255 - data[i + 2];
+
                 const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
-                data[i] = avg;     // Red
-                data[i + 1] = avg; // Green
-                data[i + 2] = avg; // Blue
+                data[i] = avg;     
+                data[i + 1] = avg; 
+                data[i + 2] = avg; 
             }
 
-            // Aumentar contraste usando um threshold adaptativo
             for (let i = 0; i < data.length; i += 4) {
-                const brightness = data[i]; // Usar o valor da escala de cinza
-                // Ajuste do threshold para permitir mais flexibilidade
-                data[i] = data[i + 1] = data[i + 2] = brightness < 200 ? 0 : 255; // Preto ou Branco
+                const brightness = data[i]; 
+                data[i] = data[i + 1] = data[i + 2] = brightness < 200 ? 0 : 255;
             }
 
             outputContext.putImageData(imageData, 0, 0);
 
-            // Redimensionar a imagem para melhorar a taxa de reconhecimento
             const scaledCanvas = document.createElement('canvas');
-            const scaleFactor = 2; // Aumentar a resolução
+            const scaleFactor = 2; 
             scaledCanvas.width = canvas.width * scaleFactor;
             scaledCanvas.height = canvas.height * scaleFactor;
             const scaledContext = scaledCanvas.getContext('2d');
             scaledContext.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
 
-            // Enviar a imagem processada para o Tesseract
             Tesseract.recognize(
                 scaledCanvas.toDataURL('image/png'),
-                'eng+por', // Adicionar suporte para português
+                'eng+por',
                 {
-                    logger: m => console.log(m) // Log do progresso
+                    logger: m => console.log(m)
                 }
             ).then(({ data: { text } }) => {
                 const filteredText = filterExpression(text);
@@ -178,8 +187,7 @@
         }
 
         function filterExpression(text) {
-            // Filtrar todos os caracteres, incluindo especiais e letras
-            return text.replace(/[^\w\s\+\-\*\/\.\(\)áéíóúãâêîôûç]/g, ''); // Permitir letras, números e operadores
+            return text.replace(/[^\w\s\+\-\*\/\.\(\)áéíóúãâêîôûç]/g, '');
         }
 
         document.getElementById('calculate').addEventListener('click', () => {
